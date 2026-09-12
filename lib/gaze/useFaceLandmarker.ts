@@ -81,27 +81,39 @@ export function useFaceLandmarker() {
     let validTimestamp = Math.max(timestampMs, lastTimestampRef.current + 1);
     lastTimestampRef.current = validTimestamp;
 
+    // Suppress MediaPipe's internal "INFO:" logs — the library calls console.error
+    // for informational messages (e.g. TFLite XNNPACK delegate) which Turbopack
+    // incorrectly surfaces as red dev-overlay errors.
+    const _origError = console.error;
+    console.error = (...args: any[]) => {
+      if (typeof args[0] === "string" && args[0].startsWith("INFO:")) return;
+      _origError.apply(console, args);
+    };
+
+    let results: ReturnType<typeof landmarkerRef.current.detectForVideo> | null = null;
     try {
-      const results = landmarkerRef.current.detectForVideo(videoElement, validTimestamp);
-
-      if (
-        results &&
-        results.facialTransformationMatrixes &&
-        results.facialTransformationMatrixes.length > 0
-      ) {
-        const matrix = results.facialTransformationMatrixes[0].data;
-
-        const rawYaw = (Math.atan2(matrix[2], matrix[10]) * 180) / Math.PI;
-        const rawPitch = (Math.atan2(-matrix[6], matrix[10]) * 180) / Math.PI;
-
-        return {
-          yaw: rawYaw,
-          pitch: rawPitch,
-          faceDetected: true,
-        };
-      }
-    } catch (err) {
+      results = landmarkerRef.current.detectForVideo(videoElement, validTimestamp);
+    } catch (_) {
       // Ignore transient detection frames quietly
+    } finally {
+      console.error = _origError;
+    }
+
+    if (
+      results &&
+      results.facialTransformationMatrixes &&
+      results.facialTransformationMatrixes.length > 0
+    ) {
+      const matrix = results.facialTransformationMatrixes[0].data;
+
+      const rawYaw = (Math.atan2(matrix[2], matrix[10]) * 180) / Math.PI;
+      const rawPitch = (Math.atan2(-matrix[6], matrix[10]) * 180) / Math.PI;
+
+      return {
+        yaw: rawYaw,
+        pitch: rawPitch,
+        faceDetected: true,
+      };
     }
 
     return { yaw: 0, pitch: 0, faceDetected: false };
