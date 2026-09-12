@@ -7,7 +7,6 @@ import { useGalleryStore } from "@/store/galleryStore";
 import { ShutterButton } from "./ShutterButton";
 import { CountdownDisplay } from "@/components/timer/CountdownDisplay";
 import { CameraOff, RefreshCw, Aperture } from "lucide-react";
-import confetti from "canvas-confetti";
 
 interface CameraViewProps {
   onStartTimer?: () => void;
@@ -108,17 +107,6 @@ export function CameraView({ onStartTimer }: CameraViewProps) {
           const modeTag =
             activeMode === "gaze" ? "gaze" : (`timer-${activeTimerPreset}` as any);
           await addPhoto(blob, modeTag);
-
-          try {
-            confetti({
-              particleCount: 40,
-              spread: 60,
-              origin: { y: 0.8 },
-              colors: ["#ffffff", "#6366f1", "#f43f5e"],
-            });
-          } catch (e) {
-            // ignore fallback
-          }
         }
         setCaptureState("CAPTURED");
         setTimeout(() => setCaptureState("IDLE"), 800);
@@ -136,8 +124,8 @@ export function CameraView({ onStartTimer }: CameraViewProps) {
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-6xl mx-auto px-4 flex-1 select-none">
-      {/* Main Standalone Viewfinder Window — Enlarged to dominate viewport */}
-      <div className="relative w-full aspect-[16/10] md:aspect-video max-h-[70vh] rounded-3xl overflow-hidden bg-zinc-950 border border-zinc-800/80 shadow-2xl group flex items-center justify-center">
+      {/* Main Standalone Viewfinder Window — Sharp Corners (rounded-none) */}
+      <div className="relative w-full aspect-[16/10] md:aspect-video max-h-[70vh] rounded-none overflow-hidden bg-zinc-950 border border-zinc-800/80 shadow-2xl group flex items-center justify-center">
         {/* Hidden Canvas for Frame Grab */}
         <canvas ref={canvasRef} className="hidden" />
 

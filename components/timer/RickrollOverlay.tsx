@@ -15,19 +15,41 @@ export function RickrollOverlay() {
   useEffect(() => {
     if (!showRickrollOverlay) return;
 
-    // Attach current webcam stream to PiP reaction feed
-    const mainVideo = document.querySelector("video") as HTMLVideoElement;
-    if (mainVideo && mainVideo.srcObject && pipVideoRef.current) {
-      pipVideoRef.current.srcObject = mainVideo.srcObject;
-      pipVideoRef.current.play().catch(() => {});
-    }
+    let timerId: NodeJS.Timeout;
+    let animId: number;
 
-    const timer = setTimeout(() => {
+    // Attach live webcam stream to PiP reaction video element
+    const attachStream = () => {
+      const allVideos = Array.from(document.querySelectorAll("video"));
+      // Find the main camera feed video with an active MediaStream
+      const mainVideo = allVideos.find(
+        (v) => v !== pipVideoRef.current && v.srcObject instanceof MediaStream
+      );
+
+      if (mainVideo && mainVideo.srcObject && pipVideoRef.current) {
+        pipVideoRef.current.srcObject = mainVideo.srcObject;
+        pipVideoRef.current.play().catch(() => {});
+      } else {
+        // Retry next frame if main video stream is still initializing
+        animId = requestAnimationFrame(attachStream);
+      }
+    };
+
+    // Delay slightly to ensure PiP DOM node is mounted
+    timerId = setTimeout(() => {
+      attachStream();
+    }, 50);
+
+    const autoDismissTimer = setTimeout(() => {
       setShowRickrollOverlay(false);
       triggerCapture();
     }, 12000); // 12 seconds
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timerId);
+      clearTimeout(autoDismissTimer);
+      cancelAnimationFrame(animId);
+    };
   }, [showRickrollOverlay, setShowRickrollOverlay, triggerCapture]);
 
   const handleSkip = () => {
@@ -49,7 +71,7 @@ export function RickrollOverlay() {
           className="relative w-full max-w-5xl aspect-video rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 bg-black"
         >
           <iframe
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover pointer-events-none"
             src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&controls=0&mute=0&loop=1&playlist=dQw4w9WgXcQ"
             title="Surprise Video"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -70,6 +92,7 @@ export function RickrollOverlay() {
               ref={pipVideoRef}
               playsInline
               muted
+              autoPlay
               className="w-full h-full object-cover transform -scale-x-100"
             />
             <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-rose-600/90 text-white font-mono text-[9px] font-bold uppercase tracking-wider">

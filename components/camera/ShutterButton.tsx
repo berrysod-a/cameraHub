@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useCaptureStore } from "@/store/captureStore";
-import { Camera, Sparkles } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCamera, faClock } from "@fortawesome/free-solid-svg-icons";
 
 interface ShutterButtonProps {
   onStartTimer?: () => void;
@@ -59,11 +60,11 @@ export function ShutterButton({ onStartTimer }: ShutterButtonProps) {
             : "bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border border-zinc-700/80 shadow-black/80 hover:border-zinc-500"
         }`}
       >
-        <div className="w-4 h-4 flex items-center justify-center">
+        <div className="w-4 h-4 flex items-center justify-center text-zinc-300">
           {activeMode === "timer" ? (
-            <Sparkles className="w-4 h-4 text-zinc-300" />
+            <FontAwesomeIcon icon={faClock} className="w-4 h-4" />
           ) : (
-            <Camera className="w-4 h-4 text-zinc-300" />
+            <FontAwesomeIcon icon={faCamera} className="w-4 h-4" />
           )}
         </div>
 
