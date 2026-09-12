@@ -12,6 +12,20 @@ export interface FaceDetectionResult {
   faceDetected: boolean;
 }
 
+// Install a one-time, permanent filter on console.error at module scope.
+// MediaPipe's WASM runtime emits "INFO: ..." messages via console.error
+// (e.g. "INFO: Created TensorFlow Lite XNNPACK delegate for CPU.")
+// Turbopack's dev overlay intercepts console.error and shows these as
+// red error banners. The filter below is safe: it only suppresses lines
+// that start with "INFO:" — real errors still pass through.
+if (typeof window !== "undefined") {
+  const _orig = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].startsWith("INFO:")) return;
+    _orig(...args);
+  };
+}
+
 export function useFaceLandmarker() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +56,7 @@ export function useFaceLandmarker() {
           setIsLoaded(true);
         }
       } catch (err: any) {
-        console.warn("Failed to initialize CPU FaceLandmarker:", err);
+        console.warn("Failed to initialize FaceLandmarker:", err);
         if (isMounted) {
           setError(err.message || "Failed to initialize face detector");
         }
@@ -77,43 +91,25 @@ export function useFaceLandmarker() {
       return { yaw: 0, pitch: 0, faceDetected: false };
     }
 
-    // Ensure timestampMs is strictly greater than previous timestamp
-    let validTimestamp = Math.max(timestampMs, lastTimestampRef.current + 1);
+    // Ensure timestamp is strictly increasing
+    const validTimestamp = Math.max(timestampMs, lastTimestampRef.current + 1);
     lastTimestampRef.current = validTimestamp;
 
-    // Suppress MediaPipe's internal "INFO:" logs — the library calls console.error
-    // for informational messages (e.g. TFLite XNNPACK delegate) which Turbopack
-    // incorrectly surfaces as red dev-overlay errors.
-    const _origError = console.error;
-    console.error = (...args: any[]) => {
-      if (typeof args[0] === "string" && args[0].startsWith("INFO:")) return;
-      _origError.apply(console, args);
-    };
-
-    let results: ReturnType<typeof landmarkerRef.current.detectForVideo> | null = null;
     try {
-      results = landmarkerRef.current.detectForVideo(videoElement, validTimestamp);
-    } catch (_) {
-      // Ignore transient detection frames quietly
-    } finally {
-      console.error = _origError;
-    }
+      const results = landmarkerRef.current.detectForVideo(videoElement, validTimestamp);
 
-    if (
-      results &&
-      results.facialTransformationMatrixes &&
-      results.facialTransformationMatrixes.length > 0
-    ) {
-      const matrix = results.facialTransformationMatrixes[0].data;
-
-      const rawYaw = (Math.atan2(matrix[2], matrix[10]) * 180) / Math.PI;
-      const rawPitch = (Math.atan2(-matrix[6], matrix[10]) * 180) / Math.PI;
-
-      return {
-        yaw: rawYaw,
-        pitch: rawPitch,
-        faceDetected: true,
-      };
+      if (
+        results?.facialTransformationMatrixes?.length > 0
+      ) {
+        const matrix = results.facialTransformationMatrixes[0].data;
+        return {
+          yaw: (Math.atan2(matrix[2], matrix[10]) * 180) / Math.PI,
+          pitch: (Math.atan2(-matrix[6], matrix[10]) * 180) / Math.PI,
+          faceDetected: true,
+        };
+      }
+    } catch {
+      // Ignore transient frame errors
     }
 
     return { yaw: 0, pitch: 0, faceDetected: false };
